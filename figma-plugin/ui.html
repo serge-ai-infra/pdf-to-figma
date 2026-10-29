@@ -1,0 +1,252 @@
+<style>
+  :root {
+    color-scheme: light dark;
+    --fg: #1a1a1a;
+    --muted: #7a7a7a;
+    --line: #d8d8d8;
+    --accent: #2c6fd1;
+    --ok: #1f7a3d;
+    --error: #b3261e;
+    --field: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg: #e8e8e8;
+      --muted: #9a9a9a;
+      --line: #3a3a3a;
+      --accent: #6ba3f0;
+      --ok: #6fcf8a;
+      --error: #f2857c;
+      --field: #2a2a2a;
+    }
+  }
+
+  body {
+    font: 11px/1.5 Inter, -apple-system, system-ui, sans-serif;
+    color: var(--fg);
+    margin: 0;
+    padding: 14px;
+  }
+  h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted);
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+  section { margin-bottom: 18px; }
+  p.hint { color: var(--muted); margin: 6px 0 0; }
+  input[type=file], input[type=number] {
+    width: 100%;
+    box-sizing: border-box;
+    font: inherit;
+    color: var(--fg);
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 8px;
+  }
+  button {
+    font: inherit;
+    font-weight: 600;
+    width: 100%;
+    padding: 9px;
+    margin-top: 8px;
+    border: 0;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    cursor: pointer;
+  }
+  button:disabled { opacity: .45; cursor: default; }
+  label { display: block; color: var(--muted); margin-bottom: 4px; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
+  #status {
+    min-height: 32px;
+    padding: 8px;
+    border-radius: 6px;
+    background: var(--field);
+    border: 1px solid var(--line);
+    white-space: pre-wrap;
+  }
+  #status.ok { color: var(--ok); }
+  #status.error { color: var(--error); }
+</style>
+
+<section>
+  <h2>1 · Import vector</h2>
+  <input type="file" id="file" accept=".svg,image/svg+xml">
+  <button id="import" disabled>Import SVG</button>
+  <p class="hint">Convert a page first: <code>pdftocairo -svg -f N -l N in.pdf out.svg</code></p>
+</section>
+
+<hr>
+
+<section>
+  <h2>2 · Export raster</h2>
+  <label for="dpi">DPI — must match the reference render</label>
+  <input type="number" id="dpi" value="200" min="36" max="600" step="1">
+  <button id="export">Export selection as PNG</button>
+  <p class="hint">Exports at dpi/96 — Figma imports SVG as CSS pixels, where 1pt
+    is 4/3px. Pixel size then matches <code>pdftoppm -r DPI</code> exactly, so the
+    diff needs no resampling.</p>
+</section>
+
+<hr>
+
+<section>
+  <h2>3 · Build from payload</h2>
+  <input type="file" id="payload-file" accept=".json,application/json">
+  <button id="build" disabled>Build</button>
+  <p class="hint">Payload from <code>emitter</code>: components + instances for
+    matched candidates, plain nodes otherwise. Re-running updates existing
+    component masters instead of duplicating them; the build frame itself is
+    cleared and rebuilt every run.</p>
+</section>
+
+<hr>
+
+<section>
+  <h2>4 · Export built IR</h2>
+  <button id="export-built">Export "pdf2figma build" as built.json</button>
+  <p class="hint">Reads the build frame's tagged nodes back into IR-shaped
+    JSON — points, not pixels — for <code>pdf2figma verify structural</code>.
+    Nothing is sent anywhere; the file downloads locally.</p>
+</section>
+
+<section>
+  <h2>5 · Import geometry donors</h2>
+  <input type="file" id="donors-file" accept=".json,application/json">
+  <button id="import-donors" disabled>Import donors</button>
+  <p class="hint">From <code>pdf2figma convert donor</code>: cropped,
+    geometry-only SVG for <code>path</code>-kind shapes, dropped into the
+    existing build frame and tagged the same way every other built node is.
+    Run this <strong>after</strong> Build (panel 3, which clears the frame)
+    and <strong>before</strong> Export built IR (panel 4) if the donor should
+    show up in the structural diff.</p>
+</section>
+
+<div id="status">Pick an SVG to begin.</div>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  let svgText = null;
+  let payloadJson = null;
+
+  $('file').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      svgText = reader.result;
+      $('import').disabled = false;
+      setStatus('Loaded ' + file.name + ' (' + Math.round(file.size / 1024) + ' KB)');
+    };
+    reader.onerror = () => setStatus('Could not read that file.', 'error');
+    reader.readAsText(file);
+  };
+
+  $('import').onclick = () => {
+    if (!svgText) return;
+    const name = $('file').files[0].name.replace(/\.svg$/i, '');
+    setStatus('Importing…');
+    parent.postMessage({ pluginMessage: { type: 'import-svg', svg: svgText, name } }, '*');
+  };
+
+  $('export').onclick = () => {
+    const dpi = parseInt($('dpi').value, 10);
+    if (!dpi || dpi < 36) return setStatus('DPI must be at least 36.', 'error');
+    setStatus('Exporting…');
+    parent.postMessage({ pluginMessage: { type: 'export-png', dpi } }, '*');
+  };
+
+  $('payload-file').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        payloadJson = JSON.parse(reader.result);
+        $('build').disabled = false;
+        setStatus('Loaded ' + file.name + ' (' + payloadJson.nodes.length + ' node(s))');
+      } catch (err) {
+        payloadJson = null;
+        $('build').disabled = true;
+        setStatus('Not valid JSON: ' + err.message, 'error');
+      }
+    };
+    reader.onerror = () => setStatus('Could not read that file.', 'error');
+    reader.readAsText(file);
+  };
+
+  $('build').onclick = () => {
+    if (!payloadJson) return;
+    setStatus('Building…');
+    parent.postMessage({ pluginMessage: { type: 'build-payload', payload: payloadJson } }, '*');
+  };
+
+  $('export-built').onclick = () => {
+    setStatus('Exporting built IR…');
+    parent.postMessage({ pluginMessage: { type: 'export-built-ir' } }, '*');
+  };
+
+  let donorsJson = null;
+
+  $('donors-file').onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        donorsJson = JSON.parse(reader.result);
+        $('import-donors').disabled = false;
+        setStatus('Loaded ' + file.name + ' (' + donorsJson.nodes.length + ' donor(s))');
+      } catch (err) {
+        donorsJson = null;
+        $('import-donors').disabled = true;
+        setStatus('Not valid JSON: ' + err.message, 'error');
+      }
+    };
+    reader.onerror = () => setStatus('Could not read that file.', 'error');
+    reader.readAsText(file);
+  };
+
+  $('import-donors').onclick = () => {
+    if (!donorsJson) return;
+    setStatus('Importing donors…');
+    parent.postMessage({ pluginMessage: { type: 'import-donors', donors: donorsJson } }, '*');
+  };
+
+  function setStatus(text, tone) {
+    const el = $('status');
+    el.textContent = text;
+    el.className = tone || '';
+  }
+
+  onmessage = (event) => {
+    const msg = event.data.pluginMessage;
+    if (!msg) return;
+
+    if (msg.type === 'status') {
+      setStatus(msg.text, msg.tone);
+    } else if (msg.type === 'png') {
+      // Download stays on the UI side: the plugin sandbox has no filesystem, and
+      // routing bytes through a Blob keeps the whole flow offline.
+      const blob = new Blob([msg.bytes], { type: 'image/png' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = msg.name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } else if (msg.type === 'built-ir') {
+      // No source filename to reuse — privacy, same rule as every *.ir.json.
+      const blob = new Blob([msg.json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'build.built.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+  };
+</script>

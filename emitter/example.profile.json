@@ -1,0 +1,7 @@
+{
+  "candidates": {
+    "shape-0": { "name": "card", "component": true },
+    "text-0": { "name": "header", "component": true, "liveText": true }
+  },
+  "defaults": { "component": false, "liveText": false }
+}

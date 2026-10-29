@@ -1,0 +1,57 @@
+[project]
+name = "pdf2figma"
+version = "0.1.0"
+description = "Rebuild a PDF as a componentized, verifiable Figma file"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "Sergii Bezrukov" }]
+
+# Permissive licenses only. PyMuPDF is the stronger extractor and is excluded
+# deliberately: it is AGPL-3.0, which an MIT project cannot depend on without
+# pushing that obligation onto everyone downstream.
+dependencies = [
+    "pdfplumber>=0.11",  # MIT
+    "pydantic>=2.9",     # MIT
+]
+
+[project.optional-dependencies]
+compare = [
+    "pillow>=11",  # MIT-CMU
+    "numpy>=2",    # BSD
+]
+dev = [
+    "pytest>=8",
+    "ruff>=0.7",
+    "mypy>=1.13",
+    "reportlab>=4",  # BSD; only scripts/make-demo-pdf.py uses it
+]
+
+[project.scripts]
+pdf2figma = "pdf2figma.cli:main"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+
+[[tool.mypy.overrides]]
+module = "pdfplumber.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

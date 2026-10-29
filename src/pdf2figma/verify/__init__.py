@@ -1,0 +1,56 @@
+"""Verify — compare what was built against the source, structurally and visually."""
+
+from pdf2figma.verify.model import (
+    BUILT_VERSION,
+    VERIFY_VERSION,
+    BuiltDocument,
+    BuiltFont,
+    BuiltNode,
+    BuiltPage,
+    BuiltVersionError,
+    PerceptualOverall,
+    PerceptualRegion,
+    PerceptualReport,
+    PerceptualStatus,
+    RegionStatus,
+    StructuralCounts,
+    StructuralRegion,
+    StructuralReport,
+    StructuralTolerances,
+    load_built,
+)
+from pdf2figma.verify.perceptual import (
+    compare,
+    crop_region,
+    diff_perceptual,
+    load_rgb,
+    write_diff_map,
+)
+from pdf2figma.verify.structural import diff_structural, payload_notes_for
+
+__all__ = [
+    "BUILT_VERSION",
+    "VERIFY_VERSION",
+    "BuiltDocument",
+    "BuiltFont",
+    "BuiltNode",
+    "BuiltPage",
+    "BuiltVersionError",
+    "PerceptualOverall",
+    "PerceptualRegion",
+    "PerceptualReport",
+    "PerceptualStatus",
+    "RegionStatus",
+    "StructuralCounts",
+    "StructuralRegion",
+    "StructuralReport",
+    "StructuralTolerances",
+    "compare",
+    "crop_region",
+    "diff_perceptual",
+    "diff_structural",
+    "load_built",
+    "load_rgb",
+    "payload_notes_for",
+    "write_diff_map",
+]

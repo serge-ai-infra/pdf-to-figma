@@ -1,0 +1,13 @@
+{
+  "name": "pdf-to-figma",
+  "id": "pdf-to-figma-local",
+  "api": "1.0.0",
+  "main": "code.js",
+  "ui": "ui.html",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "reasoning": "Everything is local: SVG is read from a file the user picks, PNG is downloaded through the browser. The plugin never sends a document anywhere."
+  }
+}
