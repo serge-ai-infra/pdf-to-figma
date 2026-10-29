@@ -1,7 +1,5 @@
 # pdf-to-figma
 
-[![CI](https://github.com/serge-ai-infra/pdf-to-figma/actions/workflows/ci.yml/badge.svg)](https://github.com/serge-ai-infra/pdf-to-figma/actions/workflows/ci.yml)
-
 Rebuild a PDF as a componentized Figma file — and measure how close the rebuild
 is, per region, instead of claiming it.
 
